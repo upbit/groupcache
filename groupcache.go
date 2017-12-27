@@ -274,13 +274,14 @@ func (g *Group) load(ctx Context, key string, dest Sink, expired bool) (value By
 		// 2: fn()
 		//
 		// If expiration functionality is disabled, or not expired, do lookupCache() twice
+		// If already expired, it means call from `handleExpiration()->loadOnMiss(true)->load(true)`, skip lookupCache()
 		if (g.expiration <= 0) || (!expired) {
 			if value, cacheHit := g.lookupCache(key); cacheHit {
 				g.Stats.CacheHits.Add(1)
 				return value, nil
 			}
+			g.Stats.LoadsDeduped.Add(1)
 		}
-		g.Stats.LoadsDeduped.Add(1)
 		var value ByteView
 		var err error
 		var peerErr error
