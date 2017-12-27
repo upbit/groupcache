@@ -1,4 +1,6 @@
-# groupcache
+# groupcache _(with expiration functionality)_
+
+> Cherry pick [adilhn/groupcache-expiration](https://github.com/adilhn/groupcache-expiration) into newest [golang/groupcache](https://github.com/golang/groupcache), thanks [Adil Husain](https://github.com/adilhn) for the excellent work.
 
 ## Summary
 
