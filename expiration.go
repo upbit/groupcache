@@ -82,6 +82,10 @@ func (g *Group) SetExpiration(d time.Duration) *Group {
 	return g
 }
 
+func (g *Group) GetExpiration() time.Duration {
+	return g.expiration
+}
+
 // SetStalePeriod sets the duration after expiration in which stale data may be served.
 // See SetExpiration() for details.  Internally this is truncated to seconds,
 // so it's not useful to set with greater precision.

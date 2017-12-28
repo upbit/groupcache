@@ -42,6 +42,12 @@ type Sink interface {
 	// supplied Unix epoch timestamp in seconds.
 	SetTimestampBytes(v []byte, timestamp int64) error
 
+	// SetBytesWithTimestamp sets the value to the contents of v, with now() timestamp
+	SetBytesWithTimestamp(v []byte) error
+	// SetExpiredBytesWithTimestamp sets the value to the contents of v, with an already timeout timestamp
+	//  it's useful for a portion value return to cache, and it will load() every request
+	SetExpiredBytesWithTimestamp(v []byte, g *Group) error
+
 	// view returns a frozen view of the bytes for caching.
 	view() (ByteView, error)
 }
@@ -114,6 +120,14 @@ func (s *stringSink) SetTimestampBytes(b []byte, timestamp int64) error {
 	return s.SetBytes(packedBytes)
 }
 
+func (s *stringSink) SetBytesWithTimestamp(b []byte) error {
+	return errors.New("SetBytesWithTimestamp unimplemented.")
+}
+
+func (s *stringSink) SetExpiredBytesWithTimestamp(b []byte, g *Group) error {
+	return errors.New("SetExpiredBytesWithTimestamp unimplemented.")
+}
+
 // ByteViewSink returns a Sink that populates a ByteView.
 func ByteViewSink(dst *ByteView) Sink {
 	if dst == nil {
@@ -169,6 +183,15 @@ func (s *byteViewSink) SetTimestampBytes(b []byte, timestamp int64) error {
 		return err
 	}
 	return s.SetBytes(packedBytes)
+}
+
+func (s *byteViewSink) SetBytesWithTimestamp(b []byte) error {
+	return s.SetTimestampBytes(b, GetTime())
+}
+
+func (s *byteViewSink) SetExpiredBytesWithTimestamp(b []byte, g *Group) error {
+	// set timestamp to expired time: now()-g.expiration, so it will load() when next Get()
+	return s.SetTimestampBytes(b, GetTime()-int64(g.GetExpiration().Seconds()))
 }
 
 // ProtoSink returns a sink that unmarshals binary proto values into m.
@@ -295,6 +318,15 @@ func (s *allocBytesSink) SetTimestampBytes(b []byte, timestamp int64) error {
 	return s.SetBytes(packedBytes)
 }
 
+func (s *allocBytesSink) SetBytesWithTimestamp(b []byte) error {
+	return s.SetTimestampBytes(b, GetTime())
+}
+
+func (s *allocBytesSink) SetExpiredBytesWithTimestamp(b []byte, g *Group) error {
+	// set timestamp to expired time: now()-g.expiration, so it will load() when next Get()
+	return s.SetTimestampBytes(b, GetTime()-int64(g.GetExpiration().Seconds()))
+}
+
 // TruncatingByteSliceSink returns a Sink that writes up to len(*dst)
 // bytes to *dst. If more bytes are available, they're silently
 // truncated. If fewer bytes are available than len(*dst), *dst
@@ -355,4 +387,12 @@ type noSetTimestampBytes struct{}
 
 func (s *noSetTimestampBytes) SetTimestampBytes(b []byte, timestamp int64) error {
 	return errors.New("SetTimestampBytes unimplemented.")
+}
+
+func (s *noSetTimestampBytes) SetBytesWithTimestamp(b []byte) error {
+	return errors.New("SetBytesWithTimestamp unimplemented.")
+}
+
+func (s *noSetTimestampBytes) SetExpiredBytesWithTimestamp(b []byte, g *Group) error {
+	return errors.New("SetExpiredBytesWithTimestamp unimplemented.")
 }
