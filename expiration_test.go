@@ -70,8 +70,7 @@ func testingSetup(groupName string) {
 		// handleExpiration() deterministic.  The test passes without this, but we
 		// should be conservative.
 		time.Sleep(1 * time.Millisecond)
-		time_ts := GetTime()
-		return dest.SetTimestampBytes(content, time_ts)
+		return dest.SetBytesWithTimestamp(content) // same as dest.SetTimestampBytes(content, GetTime())
 	}))
 }
 
