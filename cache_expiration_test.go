@@ -86,3 +86,21 @@ func TestGroupExpiration(t *testing.T) {
 		So(cost_ms, ShouldBeBetweenOrEqual, 195, 205) // force load()
 	})
 }
+
+func TestCache_nbytes(t *testing.T) {
+	initOnce_expire.Do(expireCacheSetup)
+
+	// If key exist in Cache, it return wrong nbytes here
+	Convey("Cache's nbytes should be zero", t, func() {
+		So(expireGroup.mainCache.bytes(), ShouldNotEqual, 0)
+
+		if expireGroup.mainCache.lru != nil {
+			expireGroup.mainCache.lru.Clear()
+			So(expireGroup.mainCache.bytes(), ShouldEqual, 0)
+		}
+		if expireGroup.hotCache.lru != nil {
+			expireGroup.hotCache.lru.Clear()
+			So(expireGroup.hotCache.bytes(), ShouldEqual, 0)
+		}
+	})
+}
