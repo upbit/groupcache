@@ -456,7 +456,11 @@ func (c *cache) add(key string, value ByteView) {
 			},
 		}
 	}
-	c.lru.Add(key, value)
+	// Add() will return old value when key exist,
+	//  so sub old value length from nbytes here
+	if old := c.lru.Add(key, value); old != nil {
+		c.nbytes -= int64(len(key)) + int64(old.(ByteView).Len())
+	}
 	c.nbytes += int64(len(key)) + int64(value.Len())
 }
 
