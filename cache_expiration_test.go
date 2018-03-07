@@ -13,14 +13,15 @@ import (
 
 var (
 	expireGroup     *Group
+	failedGroup     *Group
 	initOnce_expire sync.Once
 )
 
 func expireCacheSetup() {
 	setTimeProvider(defaultTimeProvider{}) // reset TimeProvider
 
-	chanSequence := make(chan int, 100)
-	for i := 0; i < 100; i++ {
+	chanSequence := make(chan int, 10)
+	for i := 0; i < 10; i++ {
 		chanSequence <- i
 	}
 
@@ -31,6 +32,25 @@ func expireCacheSetup() {
 	expireGroup.SetExpiration(time.Duration(2) * time.Second)
 	expireGroup.SetStalePeriod(time.Duration(2) * time.Second)
 	expireGroup.SetStaleDeadline(100 * time.Millisecond) // Get() may return old value if not set
+
+	chanSequence2 := make(chan int, 10)
+	for i := 0; i < 10; i++ {
+		chanSequence2 <- i
+	}
+
+	failedGroup = NewGroup("failed-group", 1<<20, GetterFunc(func(_ Context, key string, dest Sink) error {
+		time.Sleep(10 * time.Millisecond)
+		value := <-chanSequence2
+		if value%2 == 0 {
+			return dest.SetTimestampBytes([]byte(fmt.Sprintf("F%s=%d", key, value)), GetTime())
+		} else {
+			time.Sleep(40 * time.Millisecond)
+			return fmt.Errorf("error=%d", value)
+		}
+	}))
+	failedGroup.SetExpiration(time.Duration(5) * time.Millisecond)
+	failedGroup.SetStalePeriod(time.Duration(2) * time.Second)
+	failedGroup.SetStaleDeadline(100 * time.Millisecond) // Get() may return old value if not set
 }
 
 func callGetCache(gcache *Group, key string) (string, error, int64) {
@@ -102,5 +122,37 @@ func TestCache_nbytes(t *testing.T) {
 			expireGroup.hotCache.lru.Clear()
 			So(expireGroup.hotCache.bytes(), ShouldEqual, 0)
 		}
+	})
+}
+
+func TestCache_load_errors(t *testing.T) {
+	initOnce_expire.Do(expireCacheSetup)
+
+	Convey("load() error will return cached value when not totally timeout", t, func() {
+		content, err, cost_ms := callGetCache(failedGroup, "test")
+		So(err, ShouldBeNil)
+		So(content, ShouldEqual, "Ftest=0")
+		So(cost_ms, ShouldBeBetweenOrEqual, 5, 15) // load() success
+
+		time.Sleep(10 * time.Millisecond)
+
+		// load() error when second Get()
+		content, err, cost_ms = callGetCache(failedGroup, "test")
+		So(err, ShouldBeNil)
+		So(content, ShouldEqual, "Ftest=0")
+		So(cost_ms, ShouldBeBetweenOrEqual, 45, 55) // load() return error
+	})
+
+	Convey("load() error will raise when stale period reached", t, func() {
+		content, err, cost_ms := callGetCache(failedGroup, "test")
+		So(err, ShouldBeNil)
+		So(content, ShouldEqual, "Ftest=2")
+		So(cost_ms, ShouldBeBetweenOrEqual, 5, 15) // load() success
+
+		time.Sleep(2000 * time.Millisecond)
+
+		_, err, cost_ms = callGetCache(failedGroup, "test")
+		So(err, ShouldNotBeNil)
+		So(cost_ms, ShouldBeBetweenOrEqual, 45, 55) // load() return error
 	})
 }

@@ -124,7 +124,9 @@ func (g *Group) handleExpiration(ctx Context, key string, dest Sink, value ByteV
 		select {
 		case err := <-backgroundErrResult: // Made deadline so use regenerated value.
 			if err != nil {
-				return err
+				// return err
+				// if load() error, return cached value
+				break
 			}
 			bdView, _ := backgroundDest.view() // Contains a new timestamp.
 			return setSinkView(dest, bdView)
