@@ -116,7 +116,7 @@ func (g *Group) handleExpiration(ctx Context, key string, dest Sink, value ByteV
 		// Kick off a load in the background.
 		var backgroundBytes []byte
 		backgroundDest := AllocatingByteSliceSink(&backgroundBytes)
-		backgroundErrResult := make(chan error)
+		backgroundErrResult := make(chan error, 1)
 		go func() {
 			backgroundErrResult <- g.loadOnMiss(ctx, key, backgroundDest, true)
 		}()
